@@ -1,155 +1,83 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>🔐 FetchBox</title>
-  <style>
-    button { margin: 10px; padding: 10px; font-size: 16px; }
-    #downloadLink { display: none; margin-top: 20px; }
-    #loading { display: none; font-size: 16px; color: #ff7f00; }
-    #commitInfo { margin-top: 20px; font-size: 14px; color: #555; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔐 FetchBox</title>
+<style>
+  button { margin:10px; padding:10px; font-size:16px }
+  #downloadLink, #loading { display:none }
+  #loading { color:#ff7f00 }
+  #commitInfo { margin-top:20px; font-size:14px; color:#555 }
+</style>
 </head>
 <body>
 
-  <div>
-    <button data-action="tricky">Tricky Addon</button>
-    <button data-action="yurikey">Yurikey</button>
-    <button data-action="integrity">Integrity Box</button>
-  </div>
+<div>
+  <button data-action="tricky">Tricky Addon 🔑</button>
+  <button data-action="yurikey">Yurikey 🔑</button>
+  <button data-action="integrity">Integrity Box 🔑</button>
+  <button data-action="verify">Commits ⌚</button>
+</div>
 
-  <div id="loading">Processing...</div>
-  <a id="downloadLink" href="" download>Download</a>
-  <div id="commitInfo"></div>
+<div id="loading">Processing...</div>
+<a id="downloadLink" href="" download>Download</a>
+<div id="commitInfo"></div>
 
-  <script>
-    /* -----------------------------
-       Generic helpers
-    ------------------------------*/
+<script>
+const loadingEl = document.getElementById('loading'),
+      downloadLink = document.getElementById('downloadLink'),
+      commitInfoEl = document.getElementById('commitInfo');
 
-    const loadingEl = document.getElementById('loading');
-    const downloadLink = document.getElementById('downloadLink');
-    const commitInfoEl = document.getElementById('commitInfo');
+const showLoading = state => loadingEl.style.display = state ? 'inline' : 'none';
+const hexToString = hex => [...hex.match(/../g)].map(b=>String.fromCharCode(parseInt(b,16))).join('');
+const rot13 = str => str.replace(/[a-z]/gi,c=>String.fromCharCode((c<='Z'?65:97)+((c.charCodeAt(0)-(c<='Z'?65:97)+13)%26)));
+const downloadXML = (name,data)=>{const b=new Blob([`<xml><data>${data}</data></xml>`],{type:'application/xml'});downloadLink.href=URL.createObjectURL(b);downloadLink.download=name;downloadLink.textContent=`Download ${name}`;downloadLink.style.display='inline'};
+const formatTimeAgo=ms=>{const s=Math.floor(ms/1000),m=Math.floor(s/60),h=Math.floor(m/60),d=Math.floor(h/24);return s<60?`${s}s ago`:m<60?`${m}m ago`:h<24?`${h}h ago`:`${d}d ago`};
 
-    const showLoading = (state) => loadingEl.style.display = state ? 'inline' : 'none';
+async function safeFetch(url){
+  try{const r=await fetch(url);if(r.status===403)return{status:'rate-limited'};if(!r.ok)return{status:'error'};const d=await r.json();return Array.isArray(d)&&d[0]?.commit?{status:'ok',commit:d[0].commit}:{status:'no-data'}}catch{return{status:'error'}}
+}
 
-    function hexToString(hex) {
-      let out = '';
-      for (let i = 0; i < hex.length; i += 2) {
-        out += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
-      }
-      return out;
+async function fetchCommit(repo,path){const r=await safeFetch(`https://api.github.com/repos/${repo}/commits?path=${path}&per_page=1`);return r.status==='ok'?formatTimeAgo(Date.now()-new Date(r.commit.committer.date).getTime()):r.status==='rate-limited'?'Rate limited':'Commit info unavailable'}
+async function fetchLatest(repo,path,label){const r=await safeFetch(`https://api.github.com/repos/${repo}/commits?path=${path}&per_page=1`);return r.status==='ok'?{label,date:new Date(r.commit.committer.date),timeAgo:formatTimeAgo(Date.now()-new Date(r.commit.committer.date).getTime())}:{label,date:new Date(0),timeAgo:r.status==='rate-limited'?'Rate limited':'Commit info unavailable'}}
+
+const decoders = {
+  tricky: h => atob(hexToString(h)),
+  yurikey: h => atob(h),
+  integrity: h => {
+    let data = h.trim();
+    for (let i=0; i<10; i++) data = atob(data);
+    return rot13(hexToString(data));
+  }
+};
+
+const files={
+  tricky:{url:'https://raw.githubusercontent.com/KOWX712/Tricky-Addon-Update-Target-List/refs/heads/main/.extra',repo:'KOWX712/Tricky-Addon-Update-Target-List',path:'.extra',name:'trickyaddon.xml'},
+  yurikey:{url:'https://raw.githubusercontent.com/YurikeyDev/yurikey/refs/heads/main/key',repo:'YurikeyDev/yurikey',path:'key',name:'yurikey.xml'},
+  integrity:{url:'https://raw.githubusercontent.com/MeowDump/MeowDump/refs/heads/main/NullVoid/ShockWave.tar',repo:'MeowDump/MeowDump',path:'NullVoid/ShockWave.tar',name:'integritybox.xml'}
+};
+
+document.addEventListener('click',async e=>{
+  const action=e.target.dataset.action; if(!action) return;
+  showLoading(true); commitInfoEl.innerHTML=''; downloadLink.style.display='none';
+  try{
+    if(action==='verify'){
+      const commits=await Promise.all(Object.entries(files).map(([k,v])=>fetchLatest(v.repo,v.path,k==='tricky'?'Tricky Addon':k==='yurikey'?'Yurikey':'Integrity Box')));
+      commits.sort((a,b)=>b.date-a.date);
+      commitInfoEl.innerHTML=`<strong>Latest commits:</strong><br><br>${commits.map(c=>`• <strong>${c.label}</strong> ~ ${c.timeAgo}`).join('<br>')}`;
+    } else {
+      const f=files[action];
+      const raw=await fetch(f.url).then(r=>r.text());
+      const decoded=decoders[action](raw);
+      const timeAgo=await fetchCommit(f.repo,f.path);
+      commitInfoEl.textContent=`${action==='tricky'?'Tricky Addon':action==='yurikey'?'Yurikey':'Integrity Box'} last commit: ${timeAgo}`;
+      downloadXML(f.name,decoded);
     }
-
-    function rot13(str) {
-      return str.replace(/[a-zA-Z]/g, c => {
-        const base = c <= 'Z' ? 65 : 97;
-        return String.fromCharCode(((c.charCodeAt(0) - base + 13) % 26) + base);
-      });
-    }
-
-    function downloadXML(filename, data) {
-      const xml = `<xml><data>${data}</data></xml>`;
-      const blob = new Blob([xml], { type: 'application/xml' });
-      downloadLink.href = URL.createObjectURL(blob);
-      downloadLink.download = filename;
-      downloadLink.textContent = `Download ${filename}`;
-      downloadLink.style.display = 'inline';
-    }
-
-    async function fetchCommitInfo(repo, path) {
-      const url = `https://api.github.com/repos/${repo}/commits?path=${path}&per_page=1`;
-      const res = await fetch(url);
-      const data = await res.json();
-      const commitDate = new Date(data[0].commit.committer.date);
-      const diff = Date.now() - commitDate.getTime();
-      return formatTimeAgo(diff);
-    }
-
-    function formatTimeAgo(ms) {
-      const s = Math.floor(ms / 1000);
-      const m = Math.floor(s / 60);
-      const h = Math.floor(m / 60);
-      const d = Math.floor(h / 24);
-      if (s < 60) return `${s} seconds ago`;
-      if (m < 60) return `${m} minutes ago`;
-      if (h < 24) return `${h} hours ago`;
-      return `${d} days ago`;
-    }
-
-    /* -----------------------------
-       Decryption pipelines
-    ------------------------------*/
-
-    function decodeTricky(hexData) {
-      return atob(hexToString(hexData));
-    }
-
-    function decodeYurikey(base64Data) {
-      return atob(base64Data);
-    }
-
-    function decodeIntegrityBox(input) {
-      // 10x Base64 decode
-      let data = input.trim();
-      for (let i = 0; i < 10; i++) {
-        data = atob(data);
-      }
-      // From_Hex('Auto')
-      data = hexToString(data);
-      // ROT13(true,true,false,13)
-      return rot13(data);
-    }
-
-    /* -----------------------------
-       Button actions
-    ------------------------------*/
-
-    document.addEventListener('click', async (e) => {
-      if (!e.target.dataset.action) return;
-
-      showLoading(true);
-      commitInfoEl.textContent = '';
-      downloadLink.style.display = 'none';
-
-      try {
-        switch (e.target.dataset.action) {
-          case 'tricky': {
-            const raw = await fetch('https://raw.githubusercontent.com/KOWX712/Tricky-Addon-Update-Target-List/refs/heads/main/.extra').then(r => r.text());
-            const decoded = decodeTricky(raw);
-            const timeAgo = await fetchCommitInfo('KOWX712/Tricky-Addon-Update-Target-List', '.extra');
-            commitInfoEl.textContent = `Tricky Addon last commit: ${timeAgo}`;
-            downloadXML('trickyaddon.xml', decoded);
-            break;
-          }
-
-          case 'yurikey': {
-            const raw = await fetch('https://raw.githubusercontent.com/YurikeyDev/yurikey/refs/heads/main/key').then(r => r.text());
-            const decoded = decodeYurikey(raw);
-            const timeAgo = await fetchCommitInfo('YurikeyDev/yurikey', 'key');
-            commitInfoEl.textContent = `Yurikey last commit: ${timeAgo}`;
-            downloadXML('yurikey.xml', decoded);
-            break;
-          }
-
-          case 'integrity': {
-            const raw = await fetch('https://raw.githubusercontent.com/MeowDump/MeowDump/refs/heads/main/NullVoid/ShockWave.tar').then(r => r.text());
-            const decoded = decodeIntegrityBox(raw);
-            const timeAgo = await fetchCommitInfo('MeowDump/MeowDump', 'NullVoid/ShockWave.tar');
-            commitInfoEl.textContent = `Integrity Box last commit: ${timeAgo}`;
-            downloadXML('integritybox.xml', decoded);
-            break;
-          }
-        }
-      } catch (err) {
-        console.error(err);
-        alert('Error processing request. Check console for details.');
-      } finally {
-        showLoading(false);
-      }
-    });
-  </script>
+  } catch(err){console.error(err);alert('Error processing request.');}
+  finally{showLoading(false);}
+});
+</script>
 
 </body>
 </html>
