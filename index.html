@@ -12,8 +12,7 @@ html,body{
   height:100%;margin:0;overflow:hidden;touch-action:none;
   font-family:Inter,Roboto,"Helvetica Neue",sans-serif;
   background:radial-gradient(circle,var(--bg1),var(--bg2));
-  color:var(--text);color-scheme:dark;
-  -webkit-font-smoothing:antialiased
+  color:var(--text);color-scheme:dark;-webkit-font-smoothing:antialiased
 }
 body{display:grid;place-content:center;text-align:center}
 
@@ -21,12 +20,10 @@ button{
   margin:8px;padding:12px 24px;font-size:15px;font-weight:600;
   color:#fff;background:rgba(255,255,255,.05);
   border:1px solid rgba(255,255,255,.1);
-  border-radius:12px;cursor:pointer;transition:.2s;
-  outline:none
+  border-radius:12px;cursor:pointer;transition:.2s;outline:none
 }
 button:hover{background:rgba(255,255,255,.1);border-color:var(--accent);transform:translateY(-2px)}
 button:active{transform:scale(.96)}
-button:focus,button:focus-visible{outline:none}
 
 .output-container{min-height:160px;margin-top:40px;display:flex;flex-direction:column;align-items:center}
 #loading{color:var(--accent);font-style:italic;animation:pulse 1.5s infinite}
@@ -42,13 +39,38 @@ button:focus,button:focus-visible{outline:none}
   color:var(--muted);line-height:1.8;font-size:.85em;
   font-family:"JetBrains Mono","Roboto Mono",monospace
 }
+
+#modal{
+  position:fixed;top:0;left:0;width:100%;height:100%;
+  background:rgba(0,0,0,.8);backdrop-filter:blur(8px);
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:.3s;z-index:100
+}
+#modal.open{opacity:1;pointer-events:all}
+.modal-content{
+  background:var(--bg1);width:90%;max-width:500px;max-height:80vh;
+  border:1px solid rgba(255,255,255,.1);border-radius:20px;
+  padding:24px;overflow-y:auto;text-align:left;font-size:14px;
+  box-shadow:0 20px 50px rgba(0,0,0,.5)
+}
+.modal-content h2{font-size:18px;margin:20px 0 10px;color:var(--accent)}
+.modal-content code{background:rgba(255,255,255,.1);padding:2px 4px;border-radius:4px}
+table{width:100%;border-collapse:collapse;margin:10px 0;font-size:12px}
+th,td{border:1px solid rgba(255,255,255,.1);padding:8px}
+tr:nth-child(even){background:rgba(255,255,255,.03)}
+
+.help-btn{display:block;width:200px;margin:-30px auto 30px;background:var(--accent);color:#000;border:none;font-weight:700;opacity:1}
+.help-btn:hover{background:#79b8ff;transform:translateY(-2px)}
+
 .hidden{display:none}
 strong{color:#fff}
 .err-msg{color:#ff7b72!important}
+a{color:var(--accent);text-decoration:none}
 </style>
 
 </head>
 <body>
+
 <header style="margin-bottom:30px">
   <h1 style="margin:0;font-size:32px;font-weight:800;letter-spacing:-1.5px">
     Fetch<span style="color:var(--accent)">Box</span>
@@ -67,6 +89,39 @@ strong{color:#fff}
   <div id="loading" class="hidden">Accessing repository...</div>
   <a id="downloadLink" class="hidden"></a>
   <div id="commitInfo" class="hidden"></div>
+</div>
+
+<button class="help-btn" onclick="$('modal').classList.add('open')">Setup Guide</button>
+<div id="modal" onclick="this.classList.remove('open')">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <h2 style="margin-top:0">Add custom keybox.xml file</h2>
+    <ol style="padding-left:20px">
+      <li>You must have the <a href="https://github.com/beakthoven/TrickyStoreOSS">Tricky Store</a> and <a href="https://github.com/KOWX712/Tricky-Addon-Update-Target-List">Tricky Store Addon</a> modules installed.</li>
+      <li>Tap the <strong>Action</strong> button on Tricky Store to open the WebUI.</li>
+      <li>Tap the <strong>hamburger menu</strong> in the top right corner.</li>
+      <li>Select <strong>"Select All"</strong>, then <strong>"Deselect Unnecessary"</strong>.</li>
+      <li>Press <strong>Save</strong> at the bottom.</li>
+      <li>In the Addon menu, select <strong>Set Custom Keybox</strong>.</li>
+      <li>Navigate to your <code>keybox.xml</code> file and select it.</li>
+    </ol>
+
+    <h2>Align Security Patch Date</h2>
+    <p style="font-size:13px;color:var(--muted)">To prevent Google from seeing a mismatch between your system and the keybox:</p>
+    <ol style="padding-left:20px">
+      <li>In the menu, select <strong>"Set Security Patch"</strong>.</li>
+      <li>Tap <strong>Get Security Patch Date</strong> (or <strong>"Auto"</strong>).</li>
+      <li>Press <strong>Save</strong>.</li>
+    </ol>
+
+    <h2>Strong Integrity</h2>
+    <p style="font-size:13px">To achieve strong integrity, pair with these extra modules (subject to change):</p>
+    <ul style="padding-left:20px;line-height:1.5;font-size:13px">
+      <li><strong>Kernel:</strong> KernelSU Next + SUSFS Patched Kernel</li>
+      <li><strong>Modules:</strong> ReZygisk, susfs4ksu, Play Integrity Fix [INJECT], Tricky Store OSS, Tricky Store Addon</li>
+    </ul>
+
+    <button style="display:block;width:100%;margin:20px 0 0;background:var(--accent);color:#000" onclick="$('modal').classList.remove('open')">Dismiss</button>
+  </div>
 </div>
 
 <script>
